@@ -61,7 +61,7 @@ func EncodeTo(w io.Writer, msg interface{}) error {
 	}
 }
 
-func DecodeRequestFrom(r io.Reader) (interface{}, error) {
+func DecodeFrom(r io.Reader) (interface{}, error) {
 	br := bufio.NewReader(r)
 
 	sample, err := br.Peek(10)
@@ -73,72 +73,48 @@ func DecodeRequestFrom(r io.Reader) (interface{}, error) {
 	}
 	for c, _ := range sample {
 		if c == '[' {
-			return decodeRequestBatch(br)
+			return decodeBatch(br)
 		}
-		return decodeRequestObject(br)
+		return decodeObject(br)
 	}
 
 	return nil, errors.New("jsonrpc: malformed json")
 }
 
-func DecodeResponseFrom(r io.Reader) (interface{}, error) {
-	br := bufio.NewReader(r)
+type object struct {
+	Version string          `json:"jsonrpc"`
+	ID      *uint64         `json:"id,omitempty"`
+	Method  string          `json:"method,omitempty"`
+	Params  json.RawMessage `json:"params,omitempty"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *Error          `json:"error,omitempty"`
+}
 
-	sample, err := br.Peek(10)
-	if err == io.EOF {
-		fmt.Println(sample)
-	}
-	if err != nil && err != io.EOF {
+func decodeBatch(r io.Reader) (interface{}, error) {
+	var l []object
+	err := json.NewDecoder(r).Decode(&l)
+	if err != nil {
 		return nil, err
 	}
-	for c, _ := range sample {
-		if c == '[' {
-			return decodeResponseBatch(br)
+	out := make([]interface{}, len(l))
+	for i := range l {
+		out[i], err = formatObject(l[i])
+		if err != nil {
+			return nil, err
 		}
-		return decodeResponseObject(br)
 	}
-
-	return nil, errors.New("jsonrpc: malformed json")
+	return out, nil
 }
 
-func decodeResponseBatch(r io.Reader) (interface{}, error) {
-	var res []Response
-	if err := json.NewDecoder(r).Decode(&res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func decodeRequestBatch(r io.Reader) (interface{}, error) {
-	var res []Request
-	if err := json.NewDecoder(r).Decode(&res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func decodeRequestObject(r io.Reader) (interface{}, error) {
-	var req Request
-	if err := json.NewDecoder(r).Decode(&req); err != nil {
-		return nil, err
-	}
-	return req, nil
-}
-
-func decodeResponseObject(r io.Reader) (interface{}, error) {
-	var o struct {
-		Version string          `json:"jsonrpc"`
-		ID      *uint64         `json:"id,omitempty"`
-		Method  string          `json:"method,omitempty"`
-		Params  json.RawMessage `json:"params,omitempty"`
-		Result  json.RawMessage `json:"result,omitempty"`
-		Error   *Error          `json:"error,omitempty"`
-	}
-
+func decodeObject(r io.Reader) (interface{}, error) {
+	var o object
 	if err := json.NewDecoder(r).Decode(&o); err != nil {
 		return nil, err
 	}
+	return formatObject(o)
+}
 
+func formatObject(o object) (interface{}, error) {
 	switch {
 	case o.ID == nil && o.Method != "":
 		return &Notification{Version: o.Version, Method: o.Method, Params: o.Params}, nil
