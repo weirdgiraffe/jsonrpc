@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"gitlab.com/glassnode/jsonrpc"
 )
 
 type ClientHTTP struct {
@@ -77,7 +76,7 @@ func (c *ClientHTTP) DoBatch(ctx context.Context, req []*Request) ([]*Response, 
 	l := jres.([]interface{})
 	out := make([]*Response, len(l))
 	for i := range l {
-		out[i] = l[i].(*jsonrpc.Response)
+		out[i] = l[i].(*Response)
 	}
 	return out, nil
 }
