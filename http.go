@@ -11,8 +11,8 @@ import (
 )
 
 type ClientHTTP struct {
-	baseURL string
 	http    *http.Client
+	baseURL string
 }
 
 func NewClientHTTP(url string) *ClientHTTP {
