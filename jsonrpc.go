@@ -13,7 +13,7 @@ type Request struct {
 	Params  json.RawMessage `json:"params,omitempty"`
 }
 
-func NewRequest(id uint64, method string, params ...interface{}) *Request {
+func NewRequest(id uint64, method string, params ...any) *Request {
 	var p json.RawMessage
 	if len(params) > 0 {
 		p, _ = json.Marshal(params)
