@@ -6,13 +6,6 @@ import (
 	"io"
 )
 
-type Request struct {
-	Version string          `json:"jsonrpc"`
-	ID      uint64          `json:"id"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
 func NewRequest(id uint64, method string, params ...any) *Request {
 	var p json.RawMessage
 	if len(params) > 0 {
@@ -22,31 +15,38 @@ func NewRequest(id uint64, method string, params ...any) *Request {
 		Version: "2.0",
 		ID:      id,
 		Method:  method,
-		Params:  p,
+		Params:  &p,
 	}
 }
 
-type Response struct {
+type Notification struct {
+	Version string           `json:"jsonrpc"`
+	Method  string           `json:"method"`
+	Params  *json.RawMessage `json:"params,omitempty"`
+}
+
+type Request struct {
 	Version string           `json:"jsonrpc"`
 	ID      uint64           `json:"id"`
+	Method  string           `json:"method"`
+	Params  *json.RawMessage `json:"params,omitempty"`
+}
+
+type Response struct {
+	ID      uint64           `json:"id"`
+	Version string           `json:"jsonrpc"`
 	Result  *json.RawMessage `json:"result,omitempty"`
 	Error   *Error           `json:"error,omitempty"`
 }
 
 type Error struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    *json.RawMessage `json:"data,omitempty"`
 }
 
 func (e Error) Error() string {
 	return fmt.Sprintf("code: %d message: %s", e.Code, e.Message)
-}
-
-type Notification struct {
-	Version string          `json:"jsonrpc"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
 }
 
 type jsonrpcSingleMessage interface {
