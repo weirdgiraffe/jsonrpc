@@ -46,7 +46,7 @@ func (c *HTTPClient) Call(ctx context.Context, req *Request) (*Response, error) 
 	return &res, nil
 }
 
-func (c *HTTPClient) BatchCall(ctx context.Context, batch []Request) ([]Response, error) {
+func (c *HTTPClient) BatchCall(ctx context.Context, batch []*Request) ([]*Response, error) {
 	body, err := json.Marshal(batch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal jsonrpc requests batch: %w", err)
@@ -57,7 +57,7 @@ func (c *HTTPClient) BatchCall(ctx context.Context, batch []Request) ([]Response
 		return nil, err
 	}
 
-	var res []Response
+	var res []*Response
 	err = json.Unmarshal(httpResponse, &res)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal jsonrpc response batch: %w", err)

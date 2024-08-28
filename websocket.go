@@ -20,15 +20,20 @@ type WebsocketClient struct {
 	err     error
 }
 
-func ConnectWebsocket(ctx context.Context, wsURL string) (*WebsocketClient, error) {
+func ConnectWebsocket(ctx context.Context, wsURL string, logger ...Logger) (*WebsocketClient, error) {
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	var log Logger = nopLogger{}
+	if len(logger) == 1 {
+		log = logger[0]
+	}
+
 	ws := &WebsocketClient{
 		conn:          conn,
-		log:           nopLogger{},
+		log:           log,
 		notifications: make(chan Notification),
 		waiting:       make(map[uint64]chan<- Response),
 	}
@@ -40,7 +45,7 @@ func (ws *WebsocketClient) Close() error {
 	return ws.conn.Close(websocket.StatusNormalClosure, "")
 }
 
-func (ws *WebsocketClient) Call(ctx context.Context, req Request) (*Response, error) {
+func (ws *WebsocketClient) Call(ctx context.Context, req *Request) (*Response, error) {
 	b, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal jsonrpc request: %w", err)
@@ -56,10 +61,10 @@ func (ws *WebsocketClient) Call(ctx context.Context, req Request) (*Response, er
 		return nil, err
 	}
 
-	return &l[0], nil
+	return l[0], nil
 }
 
-func (ws *WebsocketClient) BatchCall(ctx context.Context, batch []Request) ([]Response, error) {
+func (ws *WebsocketClient) BatchCall(ctx context.Context, batch []*Request) ([]*Response, error) {
 	b, err := json.Marshal(batch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal jsonrpc requests batch: %w", err)
@@ -78,7 +83,7 @@ func (ws *WebsocketClient) BatchCall(ctx context.Context, batch []Request) ([]Re
 	return ws.waitForResponse(ctx, id...)
 }
 
-func (ws *WebsocketClient) waitForResponse(ctx context.Context, id ...uint64) ([]Response, error) {
+func (ws *WebsocketClient) waitForResponse(ctx context.Context, id ...uint64) ([]*Response, error) {
 	done := make(chan Response, len(id))
 	defer close(done)
 
@@ -94,17 +99,17 @@ func (ws *WebsocketClient) waitForResponse(ctx context.Context, id ...uint64) ([
 	}
 	ws.mx.Unlock()
 
-	m := make(map[uint64]Response, len(id))
+	m := make(map[uint64]*Response, len(id))
 	for len(m) < len(id) {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case res := <-done:
-			m[res.ID] = res
+			m[res.ID] = &res
 		}
 	}
 
-	l := make([]Response, len(id))
+	l := make([]*Response, len(id))
 	for i := range id {
 		reqID := id[i]
 		l[i] = m[reqID]
@@ -127,24 +132,31 @@ func (ws *WebsocketClient) fanOutMessages(ctx context.Context) {
 			continue
 		}
 
-		var rn ResponseOrNotification
-		err = json.Unmarshal(b, &rn)
+		var l []ResponseOrNotification
+		if len(b) > 0 && b[0] == '[' {
+			err = json.Unmarshal(b, &l)
+		} else {
+			l = append(l, ResponseOrNotification{})
+			err = json.Unmarshal(b, &l[0])
+		}
 		if err != nil {
 			ws.log.Warn("failed to unmarshal jsonrpc message", "error", err)
 			continue
 		}
 
-		if rn.IsResponse() {
-			err = ws.fanOutResponse(ctx, *rn.Response)
-		} else {
-			err = ws.fanOutNotification(ctx, *rn.Notification)
-		}
+		for _, rn := range l {
+			if rn.IsResponse() {
+				err = ws.fanOutResponse(ctx, *rn.Response)
+			} else {
+				err = ws.fanOutNotification(ctx, *rn.Notification)
+			}
 
-		if err != nil {
-			ws.mx.Lock()
-			err = fmt.Errorf("failed to fan out jsonrpc message: %w", err)
-			ws.mx.Unlock()
-			return
+			if err != nil {
+				ws.mx.Lock()
+				err = fmt.Errorf("failed to fan out jsonrpc message: %w", err)
+				ws.mx.Unlock()
+				return
+			}
 		}
 	}
 }

@@ -7,9 +7,9 @@ import (
 	"io"
 )
 
-func NewRequest(id uint64, method string, params ...any) *Request {
+func NewRequest(id uint64, method string, params any) *Request {
 	var p json.RawMessage
-	if len(params) > 0 {
+	if params != nil {
 		p, _ = json.Marshal(params)
 	}
 	return &Request{
@@ -98,6 +98,26 @@ type Response struct {
 	Version string          `json:"jsonrpc"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *Error          `json:"error,omitempty"`
+}
+
+func NewError(id uint64, e Error) *Response {
+	return &Response{
+		Version: "2.0",
+		ID:      id,
+		Error:   &e,
+	}
+}
+
+func NewResult(id uint64, v any) *Response {
+	var result json.RawMessage
+	if v != nil {
+		result, _ = json.Marshal(v)
+	}
+	return &Response{
+		Version: "2.0",
+		ID:      id,
+		Result:  result,
+	}
 }
 
 func (r *Response) UnmarshalJSON(b []byte) error {
