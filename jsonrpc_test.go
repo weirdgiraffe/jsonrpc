@@ -6,7 +6,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/constraints"
 )
+
+func uintptr[T constraints.Integer](v T) *uint64 {
+	i := uint64(v)
+	return &i
+}
 
 func TestUnmarshalResponse(t *testing.T) {
 	tt := map[string]struct {
@@ -24,11 +30,11 @@ func TestUnmarshalResponse(t *testing.T) {
 		},
 		"with result": {
 			In:  []byte(`{"jsonrpc":"2.0","id":1,"result":"foo"}`),
-			Out: &Response{Version: "2.0", ID: 1, Result: json.RawMessage(`"foo"`)},
+			Out: &Response{Version: "2.0", ID: uintptr(1), Result: json.RawMessage(`"foo"`)},
 		},
 		"with error": {
 			In:  []byte(`{"jsonrpc":"2.0","id":1,"error":{"code":1,"message":"foo"}}`),
-			Out: &Response{Version: "2.0", ID: 1, Error: &Error{Code: 1, Message: "foo"}},
+			Out: &Response{Version: "2.0", ID: uintptr(1), Error: &Error{Code: 1, Message: "foo"}},
 		},
 		"response with result and error": {
 			In:  []byte(`{"jsonrpc":"2.0","id":1,"result":"foo","error":{"code":1,"message":"foo"}}`),

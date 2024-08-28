@@ -79,10 +79,6 @@ func (c *HTTPClient) do(ctx context.Context, body io.Reader) ([]byte, error) {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http request failed with status code: %d", res.StatusCode)
-	}
-
 	content, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read http response body: %w", err)

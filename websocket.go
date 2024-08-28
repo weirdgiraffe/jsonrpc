@@ -105,7 +105,9 @@ func (ws *WebsocketClient) waitForResponse(ctx context.Context, id ...uint64) ([
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case res := <-done:
-			m[res.ID] = &res
+			if res.ID != nil {
+				m[*res.ID] = &res
+			}
 		}
 	}
 
@@ -171,14 +173,18 @@ func (ws *WebsocketClient) fanOutNotification(ctx context.Context, n Notificatio
 }
 
 func (ws *WebsocketClient) fanOutResponse(ctx context.Context, r Response) error {
+	if r.ID == nil {
+		return nil
+	}
+
 	ws.mx.Lock()
 	defer ws.mx.Unlock()
 
-	ch, ok := ws.waiting[r.ID]
+	ch, ok := ws.waiting[*r.ID]
 	if ok {
 		select {
 		case ch <- r:
-			delete(ws.waiting, r.ID)
+			delete(ws.waiting, *r.ID)
 		case <-ctx.Done():
 			return ctx.Err()
 		}

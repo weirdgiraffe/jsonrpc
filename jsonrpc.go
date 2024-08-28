@@ -94,16 +94,23 @@ type Request struct {
 }
 
 type Response struct {
-	ID      uint64          `json:"id"`
+	ID      *uint64         `json:"id"`
 	Version string          `json:"jsonrpc"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *Error          `json:"error,omitempty"`
 }
 
-func NewError(id uint64, e Error) *Response {
+func NewErrorForRequest(id uint64, e Error) *Response {
 	return &Response{
 		Version: "2.0",
-		ID:      id,
+		ID:      &id,
+		Error:   &e,
+	}
+}
+
+func NewError(e Error) *Response {
+	return &Response{
+		Version: "2.0",
 		Error:   &e,
 	}
 }
@@ -115,18 +122,15 @@ func NewResult(id uint64, v any) *Response {
 	}
 	return &Response{
 		Version: "2.0",
-		ID:      id,
+		ID:      &id,
 		Result:  result,
 	}
 }
 
 func (r *Response) UnmarshalJSON(b []byte) error {
-	var raw struct {
-		ID      *uint64          `json:"id"`
-		Version string           `json:"jsonrpc"`
-		Result  *json.RawMessage `json:"result,omitempty"`
-		Error   *Error           `json:"error,omitempty"`
-	}
+	type responseAlias Response
+	var raw responseAlias
+
 	err := json.Unmarshal(b, &raw)
 	if err != nil {
 		return err
@@ -134,18 +138,13 @@ func (r *Response) UnmarshalJSON(b []byte) error {
 	if raw.Version != "2.0" {
 		return fmt.Errorf("invalid jsonrpc version: %s", r.Version)
 	}
-	if raw.ID == nil {
+	if raw.ID == nil && raw.Error == nil {
 		return errors.New("missing id field")
 	}
 	if raw.Result != nil && raw.Error != nil {
 		return errors.New("both error and result fields are set")
 	}
-	r.ID = *raw.ID
-	r.Version = raw.Version
-	if raw.Result != nil {
-		r.Result = *raw.Result
-	}
-	r.Error = raw.Error
+	*r = Response(raw)
 	return nil
 }
 

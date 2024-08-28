@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +40,7 @@ func handleEchoFoo(r io.Reader) ([]*Response, int) {
 	for i := range req {
 		var res *Response
 		if req[i].Method != "foo" {
-			res = NewError(req[i].ID, ErrMethodNotFound)
+			res = NewErrorForRequest(req[i].ID, ErrMethodNotFound)
 		} else {
 			res = NewResult(req[i].ID, req[i].Params)
 		}
@@ -73,24 +75,34 @@ func TestHTTPClient(t *testing.T) {
 
 func testClient(t *testing.T, c Client) {
 	t.Helper()
-	ctx := context.Background()
+
 	t.Run("call with result", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		req := NewRequest(1, "foo", "hello")
 		res, err := c.Call(ctx, req)
 		require.NoError(t, err)
-		require.Equal(t, req.ID, res.ID)
+		if assert.NotNil(t, res.ID) {
+			require.Equal(t, req.ID, *res.ID)
+		}
 		require.Nil(t, res.Error)
 		require.Equal(t, req.Params, res.Result)
 	})
 	t.Run("call with error", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		req := NewRequest(1, "bar", "hello")
 		res, err := c.Call(ctx, req)
 		require.NoError(t, err)
-		require.Equal(t, req.ID, res.ID)
+		if assert.NotNil(t, res.ID) {
+			require.Equal(t, req.ID, *res.ID)
+		}
 		require.Equal(t, &ErrMethodNotFound, res.Error)
 		require.Nil(t, res.Result)
 	})
 	t.Run("batch call with result", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		batch := []*Request{
 			NewRequest(1, "foo", "hello"),
 			NewRequest(2, "foo", "world"),
@@ -104,26 +116,30 @@ func testClient(t *testing.T, c Client) {
 		require.Equal(t, expected, actual)
 	})
 	t.Run("batch call with error", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		batch := []*Request{
 			NewRequest(1, "bar", "hello"),
 			NewRequest(2, "bar", "world"),
 		}
 		expected := []*Response{
-			NewError(1, ErrMethodNotFound),
-			NewError(2, ErrMethodNotFound),
+			NewErrorForRequest(1, ErrMethodNotFound),
+			NewErrorForRequest(2, ErrMethodNotFound),
 		}
 		actual, err := c.BatchCall(ctx, batch)
 		require.NoError(t, err)
 		require.Equal(t, expected, actual)
 	})
 	t.Run("batch call mixed", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		batch := []*Request{
 			NewRequest(1, "foo", "hello"),
 			NewRequest(2, "bar", "world"),
 		}
 		expected := []*Response{
 			NewResult(1, "hello"),
-			NewError(2, ErrMethodNotFound),
+			NewErrorForRequest(2, ErrMethodNotFound),
 		}
 		actual, err := c.BatchCall(ctx, batch)
 		require.NoError(t, err)
