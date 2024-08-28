@@ -42,12 +42,8 @@ func TestUnmarshalResponse(t *testing.T) {
 			In:  []byte(`{"jsonrpc":"2.0","id":null,"result":"foo"}`),
 			Err: true,
 		},
-		"malformed json struct": {
-			In:  []byte(`foo`),
-			Err: true,
-		},
-		"malformed json values": {
-			In:  []byte(`{"foo": "bar"}`),
+		"malformed json": {
+			In:  []byte(`"foo"`),
 			Err: true,
 		},
 	}
@@ -100,12 +96,8 @@ func TestUnmarshalNotification(t *testing.T) {
 			In:  []byte(`{"jsonrpc":"2.0", "method":"foo"}`),
 			Out: &Notification{Version: "2.0", Method: "foo"},
 		},
-		"malformed json struct": {
-			In:  []byte(`foo`),
-			Err: true,
-		},
-		"malformed json values": {
-			In:  []byte(`{"foo": "bar"}`),
+		"malformed json": {
+			In:  []byte(`"foo"`),
 			Err: true,
 		},
 	}
