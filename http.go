@@ -10,19 +10,23 @@ import (
 	"time"
 )
 
-type ClientHTTP struct {
+type HTTPClient struct {
 	http    *http.Client
 	baseURL string
 }
 
-func NewClientHTTP(url string) *ClientHTTP {
-	return &ClientHTTP{
+func NewHTTPClient(url string) *HTTPClient {
+	return &HTTPClient{
 		baseURL: url,
 		http:    &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-func (c *ClientHTTP) Call(ctx context.Context, req *Request) (*Response, error) {
+func (c *HTTPClient) Close() error {
+	return nil
+}
+
+func (c *HTTPClient) Call(ctx context.Context, req *Request) (*Response, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal jsonrpc request: %w", err)
@@ -42,7 +46,7 @@ func (c *ClientHTTP) Call(ctx context.Context, req *Request) (*Response, error) 
 	return &res, nil
 }
 
-func (c *ClientHTTP) BatchCall(ctx context.Context, batch []Request) ([]Response, error) {
+func (c *HTTPClient) BatchCall(ctx context.Context, batch []Request) ([]Response, error) {
 	body, err := json.Marshal(batch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal jsonrpc requests batch: %w", err)
@@ -62,7 +66,7 @@ func (c *ClientHTTP) BatchCall(ctx context.Context, batch []Request) ([]Response
 	return res, nil
 }
 
-func (c *ClientHTTP) do(ctx context.Context, body io.Reader) ([]byte, error) {
+func (c *HTTPClient) do(ctx context.Context, body io.Reader) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodPost, c.baseURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init http request: %w", err)
